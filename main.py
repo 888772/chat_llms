@@ -3,6 +3,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 import requests
+import pickle
 import json
 
 ## TOKENS ##
@@ -147,6 +148,7 @@ def gerar_resposta(historico):
         return dados["choices"][0]["message"]["content"]
     except (KeyError, IndexError):
         return f"⚠️ Erro ao obter resposta da API: {dados}"
+    
 ## APLICAÇÃO ###
 
 st.title("CHAT LGTV")
@@ -155,10 +157,13 @@ st.title("CHAT LGTV")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+## SIDE BAR ##
+
 # Botão para limpar o histórico da conversa
 if st.sidebar.button("🗑️ Limpar conversa"):
     st.session_state.messages = []
     st.rerun()
+
 
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:
@@ -196,5 +201,3 @@ if prompt:
         st.markdown(resposta)
  
     st.session_state.messages.append({"role": "assistant", "content": resposta})
-
-
