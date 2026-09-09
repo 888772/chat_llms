@@ -12,7 +12,6 @@ CHAVE_API_OPENROUTER = os.getenv("OPENROUTER_TOKEN")
 
 if CHAVE_API_OPENROUTER:
     print("CHAVE API OPENROUTER FUNCIONANDO")
-    st.toast("RESPOSTA RECEBIDA!!")
 else:
     print("CHAVE API OPENROUTER NÃO FUNCIONA")
     st.error("⚠️ Token da OpenRouter não encontrado. Verifique seu arquivo .env (chave OPENROUTER_TOKEN).")
@@ -82,7 +81,7 @@ def gerar_resposta_stream(historico):
     
 ## APLICAÇÃO ###
 
-st.title("LUMI IA")
+st.title("LumIA")
 
 # Inicializar histórico do chat
 if "messages" not in st.session_state:
