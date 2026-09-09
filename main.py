@@ -12,7 +12,7 @@ CHAVE_API_OPENROUTER = os.getenv("OPENROUTER_TOKEN")
 
 if CHAVE_API_OPENROUTER:
     print("CHAVE API OPENROUTER FUNCIONANDO")
-    st.toast("SISTEMA FUNCIONANDO!!")
+    st.toast("RESPOSTA RECEBIDA!!")
 else:
     print("CHAVE API OPENROUTER NÃO FUNCIONA")
     st.error("⚠️ Token da OpenRouter não encontrado. Verifique seu arquivo .env (chave OPENROUTER_TOKEN).")
@@ -20,7 +20,7 @@ else:
 
 ## VARIÁVEIS ##
 
-modelo_selecionado = ""
+#modelo_selecionado = ""
 
 ## FUNÇÕES ##
 
