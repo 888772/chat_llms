@@ -4,6 +4,13 @@ import os
 from dotenv import load_dotenv
 import requests
 import json
+import extra_streamlit_components as stx
+
+import auth
+import historico
+
+historico.inicializar_banco()
+auth.inicializar_tabela_usuarios()
 
 ## TOKENS ##
 
@@ -34,6 +41,11 @@ Regras:
 - Priorize precisão: corrija o usuário se ele errar, e diga "não sei" quando for o caso. Nunca invente fatos, fontes ou links.
 - Mantenha o contexto da conversa, não repita perguntas já respondidas.
 - Não ajude com nada ilegal ou perigoso; se recusar, explique o motivo e sugira uma alternativa."""
+
+def obter_cookie_manager():
+    return stx.CookieManager()
+
+cookie_manager = obter_cookie_manager()
 
 def gerar_resposta_stream(historico):
     mensagens_api = [{"role": "system", "content": SYSTEM_PROMPT}] + historico
@@ -78,10 +90,75 @@ def gerar_resposta_stream(historico):
                 except json.JSONDecodeError:
                     continue
     # Opcional: retornar full_response se precisar salvar no histórico fora do generator
+
+## AUTENTICAÇÃO ##
+
+# ---------------- AUTENTICAÇÃO ----------------
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+
+# Tenta recuperar login do cookie, se ainda não estiver logado nessa sessão
+if st.session_state.usuario_logado is None:
+    cookies = cookie_manager.get_all()
+    usuario_cookie = cookies.get("usuario_logado")
+    token_cookie = cookies.get("token_login")
+
+    if usuario_cookie and token_cookie:
+        if auth.validar_login(usuario_cookie, token_cookie):
+            st.session_state.usuario_logado = usuario_cookie
+
+if st.session_state.usuario_logado is None:
+    st.title("🔐 Acesso ao LumIA")
+
+    aba_login, aba_registro = st.tabs(["Login", "Criar conta"])
+
+    with aba_login:
+        usuario_input = st.text_input("Usuário", key="login_usuario")
+        token_input = st.text_input("Token", type="password", key="login_token")
+        lembrar = st.checkbox("Manter conectado neste navegador", value=True)
+
+        if st.button("Entrar"):
+            if auth.validar_login(usuario_input, token_input):
+                st.session_state.usuario_logado = usuario_input
+
+                if lembrar:
+                    cookie_manager.set("usuario_logado", usuario_input, key="set_usuario_logado")
+                    cookie_manager.set("token_login", token_input, key="set_token_login")
+
+                st.rerun()
+            else:
+                st.error("Usuário ou token inválidos.")
+
+    with aba_registro:
+        novo_usuario = st.text_input("Escolha um nome de usuário", key="registro_usuario")
+        if st.button("Registrar"):
+            if not novo_usuario.strip():
+                st.warning("Digite um nome de usuário.")
+            else:
+                token_gerado = auth.registrar_usuario(novo_usuario)
+                if token_gerado is None:
+                    st.error("Esse nome de usuário já existe. Escolha outro.")
+                else:
+                    st.success("Conta criada! Guarde seu token — ele não será mostrado de novo:")
+                    st.code(token_gerado)
+
+    st.stop()
     
 ## APLICAÇÃO ###
 
 st.title("LumIA")
+
+if "conversa_id" not in st.session_state:
+    conversas = historico.listar_conversas(st.session_state.usuario_logado)
+    if conversas:
+        st.session_state.conversa_id = conversas[0]["id"]
+    else:
+        st.session_state.conversa_id = historico.criar_conversa(st.session_state.usuario_logado)
+
+if "messages" not in st.session_state:
+    st.session_state.messages = historico.carregar_mensagens(
+        st.session_state.conversa_id, st.session_state.usuario_logado
+    )
 
 # Inicializar histórico do chat
 if "messages" not in st.session_state:
@@ -93,9 +170,55 @@ if "messages" not in st.session_state:
 
 st.sidebar.header("OPÇÕES:")
 
-if st.sidebar.button("🗑️ Limpar conversa"):
+if st.sidebar.button("➕ Nova conversa"):
+    st.session_state.conversa_id = historico.criar_conversa(st.session_state.usuario_logado)
     st.session_state.messages = []
     st.rerun()
+
+st.sidebar.header("CONVERSAS SALVAS:")
+conversas = historico.listar_conversas(st.session_state.usuario_logado)
+
+for c in conversas:
+    col_abrir, col_apagar = st.sidebar.columns([4, 1])
+
+    with col_abrir:
+        if st.button(f"💬 {c['titulo']}", key=f"abrir_{c['id']}"):
+            st.session_state.conversa_id = c["id"]
+            st.session_state.messages = historico.carregar_mensagens(
+                c["id"], st.session_state.usuario_logado
+            )
+            st.rerun()
+
+    with col_apagar:
+        confirmar_key = f"confirmar_{c['id']}"
+
+        if st.session_state.get(confirmar_key):
+            if st.button("✅", key=f"sim_{c['id']}"):
+                historico.apagar_conversa(c["id"], st.session_state.usuario_logado)
+                st.session_state[confirmar_key] = False
+
+                # Recarrega a lista de conversas depois de apagar
+                conversas_restantes = historico.listar_conversas(st.session_state.usuario_logado)
+
+                if st.session_state.conversa_id == c["id"]:
+                    if conversas_restantes:
+                        # Ainda sobrou conversa: abre a mais recente
+                        st.session_state.conversa_id = conversas_restantes[0]["id"]
+                        st.session_state.messages = historico.carregar_mensagens(
+                            conversas_restantes[0]["id"], st.session_state.usuario_logado
+                        )
+                    else:
+                        # Era a última: cria uma nova vazia
+                        st.session_state.conversa_id = historico.criar_conversa(
+                            st.session_state.usuario_logado
+                        )
+                        st.session_state.messages = []
+
+                st.rerun()
+        else:
+            if st.button("🗑️", key=f"apagar_{c['id']}"):
+                st.session_state[confirmar_key] = True
+                st.rerun()
 
 # mudar o modelo usado
 if "modelo_selecionado" not in st.session_state:
@@ -116,6 +239,12 @@ indice_atual = nomes.index(
 nome_escolhido = st.sidebar.radio("Escolha o modelo:", nomes, index=indice_atual)
 st.session_state.modelo_selecionado = modelos[nome_escolhido]
 
+st.sidebar.markdown(f"👤 Logado como **{st.session_state.usuario_logado}**")
+if st.sidebar.button("🚪 Sair"):
+    st.session_state.usuario_logado = None
+    cookie_manager.delete("usuario_logado", key="del_usuario_logado")
+    cookie_manager.delete("token_login", key="del_token_login")
+    st.rerun()
 
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:
@@ -138,6 +267,7 @@ if prompt:
 
     # adicionando chat no histórico
     st.session_state.messages.append({"role": "user", "content": prompt})
+    historico.salvar_mensagem(st.session_state.conversa_id, "user", prompt)
 
 
     #CHAT BOX - AI
@@ -150,5 +280,6 @@ if prompt:
             resposta_completa = st.write_stream(gerar_resposta_stream(st.session_state.messages))
 
     st.session_state.messages.append({"role": "assistant", "content": resposta_completa})
+    historico.salvar_mensagem(st.session_state.conversa_id, "assistant", resposta_completa)
 
 st.info(f"Você está usando o modelo {nome_escolhido}")
