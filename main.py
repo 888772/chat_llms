@@ -3,7 +3,6 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 import requests
-import pickle
 import json
 
 ## TOKENS ##
@@ -13,15 +12,22 @@ CHAVE_API_OPENROUTER = os.getenv("OPENROUTER_TOKEN")
 
 if CHAVE_API_OPENROUTER:
     print("CHAVE API OPENROUTER FUNCIONANDO")
+    st.toast("SISTEMA FUNCIONANDO!!")
 else:
     print("CHAVE API OPENROUTER NÃO FUNCIONA")
     st.error("⚠️ Token da OpenRouter não encontrado. Verifique seu arquivo .env (chave OPENROUTER_TOKEN).")
     st.stop()
 
+## VARIÁVEIS ##
+
+modelo_selecionado = ""
+
 ## FUNÇÕES ##
 
 SYSTEM_PROMPT="""
 Você é um assistente de inteligência artificial útil, inteligente, preciso e amigável.
+
+primeiro identifique-se o seu modelo
 
 ## PERSONALIDADE
 
@@ -131,7 +137,7 @@ def gerar_resposta(historico):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "inclusionai/ling-3.0-flash-sante:free",
+                "model": st.session_state.modelo_selecionado,
                 "messages": mensagens_api
             },
             timeout=60
@@ -160,9 +166,31 @@ if "messages" not in st.session_state:
 ## SIDE BAR ##
 
 # Botão para limpar o histórico da conversa
+
+st.sidebar.header("OPÇÕES:")
+
 if st.sidebar.button("🗑️ Limpar conversa"):
     st.session_state.messages = []
     st.rerun()
+
+# mudar o modelo usado
+if "modelo_selecionado" not in st.session_state:
+    st.session_state.modelo_selecionado = "inclusionai/ling-3.0-flash-sante:free"  # padrão
+
+st.sidebar.header("MODELO DE IA:")
+modelos = {
+    "Ling 3.0 Flash Sante (PADRÃO)": "inclusionai/ling-3.0-flash-sante:free",
+    "NVIDIA: Nemotron 3 Ultra (lento)": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "Nex AGI: Nex-N2.5-Pro": "nex-agi/nex-n2.5-pro:free",
+}
+
+nomes = list(modelos.keys())
+indice_atual = nomes.index(
+    [k for k, v in modelos.items() if v == st.session_state.modelo_selecionado][0]
+)
+
+nome_escolhido = st.sidebar.radio("Escolha o modelo:", nomes, index=indice_atual)
+st.session_state.modelo_selecionado = modelos[nome_escolhido]
 
 
 # Display chat messages from history on app rerun
@@ -193,7 +221,7 @@ if prompt:
     # Display AI message in chat message container
 
     with st.chat_message("assistant"):
-        with st.spinner("Pensando..."):
+        with st.spinner(f"{nome_escolhido} Pensando..."):
             try:
                 resposta = gerar_resposta(st.session_state.messages)
             except Exception as e:
@@ -201,3 +229,5 @@ if prompt:
         st.markdown(resposta)
  
     st.session_state.messages.append({"role": "assistant", "content": resposta})
+
+st.info(f"Você está usando o modelo {nome_escolhido}")
