@@ -259,7 +259,7 @@ if st.sidebar.button("🚪 Sair"):
     st.session_state.acabou_de_deslogar = True  # bloqueia login automático nesse próximo rerun
 
     import time
-    time.sleep(0.5)
+    time.sleep(5)
     st.rerun()
 
 # Display chat messages from history on app rerun
