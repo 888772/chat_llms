@@ -268,34 +268,38 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # React to user input
-prompt = st.chat_input("Oque você precisa?")
-if prompt:
-    prompt = prompt.strip()
-    if not prompt:
-        st.warning("Digite algo para continuar.")
-        st.stop()
 
-    #CHAT BOX - USER
+if st.session_state.usuario_logado is None:
+    st.chat_input("Faça login para conversar", disabled=True)
+else:
+    prompt = st.chat_input("Oque você precisa?")
+    if prompt:
+        prompt = prompt.strip()
+        if not prompt:
+            st.warning("Digite algo para continuar.")
+            st.stop()
 
-    # Display user message in chat message container
-    with st.chat_message("user"):
-        st.markdown(prompt)
+        #CHAT BOX - USER
 
-    # adicionando chat no histórico
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    historico.salvar_mensagem(st.session_state.conversa_id, "user", prompt)
+        # Display user message in chat message container
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # adicionando chat no histórico
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        historico.salvar_mensagem(st.session_state.conversa_id, "user", prompt)
 
 
-    #CHAT BOX - AI
+        #CHAT BOX - AI
 
-    # Display AI message in chat message container
+        # Display AI message in chat message container
 
-    with st.chat_message("assistant"):
-        with st.spinner(f"{nome_escolhido} Pensando..."):
-        # st.write_stream gerencia o placeholder e concatena automaticamente
-            resposta_completa = st.write_stream(gerar_resposta_stream(st.session_state.messages))
+        with st.chat_message("assistant"):
+            with st.spinner(f"{nome_escolhido} Pensando..."):
+            # st.write_stream gerencia o placeholder e concatena automaticamente
+                resposta_completa = st.write_stream(gerar_resposta_stream(st.session_state.messages))
 
-    st.session_state.messages.append({"role": "assistant", "content": resposta_completa})
-    historico.salvar_mensagem(st.session_state.conversa_id, "assistant", resposta_completa)
+        st.session_state.messages.append({"role": "assistant", "content": resposta_completa})
+        historico.salvar_mensagem(st.session_state.conversa_id, "assistant", resposta_completa)
 
 st.info(f"Você está usando o modelo {nome_escolhido}")
