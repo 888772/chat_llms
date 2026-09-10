@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import requests
 import json
 import extra_streamlit_components as stx
+from streamlit_js_eval import streamlit_js_eval
 
 import auth
 import historico
@@ -99,8 +100,11 @@ def gerar_resposta_stream(historico):
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 
-# Tenta recuperar login do cookie, se ainda não estiver logado nessa sessão
-if st.session_state.usuario_logado is None:
+if "acabou_de_deslogar" not in st.session_state:
+    st.session_state.acabou_de_deslogar = False
+
+# Só tenta login via cookie se NÃO acabou de deslogar agora
+if st.session_state.usuario_logado is None and not st.session_state.acabou_de_deslogar:
     cookies = cookie_manager.get_all()
     usuario_cookie = cookies.get("usuario_logado")
     token_cookie = cookies.get("token_login")
@@ -108,6 +112,9 @@ if st.session_state.usuario_logado is None:
     if usuario_cookie and token_cookie:
         if auth.validar_login(usuario_cookie, token_cookie):
             st.session_state.usuario_logado = usuario_cookie
+
+# Reseta a flag depois de checar (só bloqueia por 1 rerun)
+st.session_state.acabou_de_deslogar = False
 
 if st.session_state.usuario_logado is None:
     st.title("🔐 Acesso ao LumIA")
@@ -245,9 +252,14 @@ st.session_state.modelo_selecionado = modelos[nome_escolhido]
 
 st.sidebar.markdown(f"👤 Logado como **{st.session_state.usuario_logado}**")
 if st.sidebar.button("🚪 Sair"):
-    st.session_state.usuario_logado = None
     cookie_manager.delete("usuario_logado", key="del_usuario_logado")
     cookie_manager.delete("token_login", key="del_token_login")
+
+    st.session_state.usuario_logado = None
+    st.session_state.acabou_de_deslogar = True  # bloqueia login automático nesse próximo rerun
+
+    import time
+    time.sleep(0.5)
     st.rerun()
 
 # Display chat messages from history on app rerun

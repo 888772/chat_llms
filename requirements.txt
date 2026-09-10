@@ -1,3 +1,4 @@
 streamlit
 dotenv
 extra-streamlit-components
+streamlit_js_eval
