@@ -15,7 +15,9 @@ auth.inicializar_tabela_usuarios()
 ## TOKENS ##
 
 load_dotenv()
-CHAVE_API_OPENROUTER = os.getenv("OPENROUTER_TOKEN")
+#CHAVE_API_OPENROUTER = os.getenv("OPENROUTER_TOKEN")
+
+CHAVE_API_OPENROUTER = st.secrets.get("OPENROUTER_TOKEN") or os.getenv("OPENROUTER_TOKEN")
 
 if CHAVE_API_OPENROUTER:
     print("CHAVE API OPENROUTER FUNCIONANDO")
@@ -43,7 +45,7 @@ Regras:
 - Não ajude com nada ilegal ou perigoso; se recusar, explique o motivo e sugira uma alternativa."""
 
 def obter_cookie_manager():
-    return stx.CookieManager()
+    return stx.CookieManager(key="cookie_manager")
 
 cookie_manager = obter_cookie_manager()
 
@@ -124,6 +126,8 @@ if st.session_state.usuario_logado is None:
                 if lembrar:
                     cookie_manager.set("usuario_logado", usuario_input, key="set_usuario_logado")
                     cookie_manager.set("token_login", token_input, key="set_token_login")
+                    import time
+                    time.sleep(1)  # dá tempo do JS gravar antes do rerun matar o componente
 
                 st.rerun()
             else:

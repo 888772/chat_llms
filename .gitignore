@@ -11,6 +11,7 @@ env/
 
 # Streamlit
 .streamlit/secrets.toml
+chat_historico.db
 
 # Editor
 .vscode/
